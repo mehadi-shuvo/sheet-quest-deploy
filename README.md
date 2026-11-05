@@ -489,7 +489,7 @@ Use this template **after every Codex run**:
 - Tests/commands: `test ! -e README.md && test -f deploy/README.md` → PASS; the parent copy no longer exists and the canonical deploy copy exists. Pre-commit `git status --short` in all three repositories → PASS; each contains only its new README.
 - Acceptance criteria met: Partially. The master roadmap is now tracked with deployment configuration; the architecture, environment-variable, and local-versus-production documentation still needs completion.
 - Remaining work / blocker: Write and test the M00-T04 operational documentation; then connect the three repositories to their remotes and push.
-- Git commits (if any): Pending for this documentation move.
+- Git commits: Deploy `d11358e` (`docs: make deploy README the canonical roadmap`); web `ca47b88` and API `4a88513` (both `docs: link contributors to master roadmap`).
 - Next task: Complete M00-T04 documentation in this master README.
 
 ---
