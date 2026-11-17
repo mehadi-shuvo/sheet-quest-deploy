@@ -1,0 +1,86 @@
+name: sheetquest
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      POSTGRES_DB: ${POSTGRES_DB:-sheetquest}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [private]
+
+  # Migrations remain explicit: run this service only with --profile migrations.
+  migrate:
+    build:
+      context: ../sheetquest-api
+      target: development
+    profiles: [migrations]
+    restart: "no"
+    command: ["./node_modules/.bin/prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-sheetquest}?schema=public
+    depends_on:
+      db: {condition: service_healthy}
+    networks: [private]
+
+  api:
+    build:
+      context: ../sheetquest-api
+      target: development
+    restart: unless-stopped
+    command: ["npm", "run", "dev"]
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-sheetquest}?schema=public
+    depends_on:
+      db: {condition: service_healthy}
+    volumes:
+      - ../sheetquest-api:/app
+      - api_node_modules:/app/node_modules
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks: [private]
+    ports:
+      - "127.0.0.1:${API_PORT:-4000}:4000"
+
+  web:
+    build:
+      context: ../sheetquest-web
+      target: development
+    restart: unless-stopped
+    command: ["npm", "run", "dev"]
+    environment:
+      NODE_ENV: development
+      API_INTERNAL_URL: http://api:4000
+    depends_on:
+      api: {condition: service_healthy}
+    volumes:
+      - ../sheetquest-web:/app
+      - web_node_modules:/app/node_modules
+      - web_next:/app/.next
+    networks: [private]
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+
+volumes:
+  postgres_data:
+  api_node_modules:
+  web_node_modules:
+  web_next:
+
+networks:
+  private:
+    driver: bridge
